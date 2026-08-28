@@ -1,25 +1,32 @@
 package _select
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 )
 
-func Racer(slowurl, fasturl string) (winurl string) {
-	slowurl_dur:=measureResponseTime(slowurl)
-	fasturl_dur:=measureResponseTime(fasturl)
-
-	if fasturl_dur<slowurl_dur{
-		return fasturl
+func Racer(slowurl, fasturl string) (winurl string, err error) {
+	select {
+	case <-ping(slowurl):
+		return slowurl, nil
+	case <-ping(fasturl):
+		return fasturl, nil
+	case <-time.After(10 * time.Second):
+		return "", fmt.Errorf("timeout for request %s and %s ", slowurl, fasturl)
 	}
-	return slowurl
+
 }
 
-func measureResponseTime(url string) time.Duration {
-	start := time.Now()
-	resp, err := http.Get(url)
-	if err == nil {
-		resp.Body.Close()
-	}
-	return time.Since(start)
+func ping(url string) chan struct{} {
+	ch := make(chan struct{})
+	go func() {
+		resp, err := http.Get(url)
+
+		if err == nil {
+			resp.Body.Close()
+		}
+		close(ch)
+	}()
+	return ch
 }
