@@ -8,37 +8,34 @@ import (
 	"github.com/Kishorsenthilkumar/blogposts"
 )
 
-func TestBlogPosts(t *testing.T) {
+func TestNewline(t *testing.T) {
+	const (
+		firstBody = `Title: Post 1
+Description: Description 1`
+		secondBody = `Title: Post 2
+Description: Description 2`
+	)
 	fs := fstest.MapFS{
-		"hello.md":  {Data: []byte("hi")},
-		"hello1.md": {Data: []byte("how r u")},
+		"sample1.md": {Data: []byte(firstBody)},
+		"sample2.md": {Data: []byte(secondBody)},
 	}
-	posts, err := blogposts.NewPostsFromFs(fs)
+
+	post, err := blogposts.NewPostsFromFs(fs)
+
+	got := post[0]
+	want := blogposts.Post{"Post 1", "Description 1"}
+
+	assertPost(t, got, want)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(fs) != len(posts) {
-		t.Errorf("got %d wanted %d", len(posts), len(fs))
-	}
 }
 
-func TestNewBlogPosts(t *testing.T) {
-	fs := fstest.MapFS{
-		"hello.md":  {Data: []byte("Title: Post1")},
-		"hello1.md": {Data: []byte("Title: Post2")},
-	}
-	posts, err := blogposts.NewPostsFromFs(fs)
-
-	got := posts[0]
-	want := blogposts.Post{Title: "Post1"}
-
+func assertPost(t testing.TB, got blogposts.Post, want blogposts.Post) {
+	t.Helper()
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %v want %v", got, want)
+		t.Errorf("got %+v want %+v", got, want)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
-
 }
