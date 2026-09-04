@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 )
 
@@ -60,6 +61,13 @@ func snippetCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+
+	addr := flag.String("addr", ":4000", "HTTP network address")
+	flag.Parse()
+
+	infolog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
+	errorlog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
+
 	mux := http.NewServeMux()
 
 	fileserver := http.FileServer(http.Dir("C:\\Users\\Aspl-Kishore\\GolandProjects\\go-with-test\\web\\ui\\static"))
@@ -69,12 +77,15 @@ func main() {
 	mux.HandleFunc("/snippet/view", snippetView)
 	mux.HandleFunc("/snippet/create", snippetCreate)
 
-	addr := flag.String("addr", ":4000", "HTTP network address")
-	flag.Parse()
+	srv := &http.Server{
+		Addr:     *addr,
+		ErrorLog: errorlog,
+		Handler:  mux,
+	}
 
-	log.Printf("Starting server on %s", *addr)
-	err := http.ListenAndServe(*addr, mux)
+	infolog.Printf("Starting server on %s", *addr)
+	err := srv.ListenAndServe()
 
-	log.Fatal(err)
+	errorlog.Fatal(err)
 
 }
