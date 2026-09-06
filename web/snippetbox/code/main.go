@@ -1,18 +1,23 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"fmt"
+	"go-with-test/web/snippetbox/internal/models"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type application struct {
 	errorlog *log.Logger
 	infolog  *log.Logger
+	snippets *models.SnippetModel
 }
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
@@ -63,33 +68,46 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("create a new snippet"))
 }
 
+func openDB(dsn string) (*sql.DB, error) {
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
 func main() {
 
 	addr := flag.String("addr", ":4000", "HTTP network address")
+
+	dsn := flag.String("dsn", "web:pass@/snippetbox?parseTime=true", "MySQL data source name")
+
 	flag.Parse()
 
 	infolog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	errorlog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
-	app := &application{errorlog: errorlog, infolog: infolog}
+	db, err := openDB(*dsn)
 
-	mux := http.NewServeMux()
+	if err != nil {
+		errorlog.Fatal(err)
+	}
 
-	fileserver := http.FileServer(http.Dir("C:\\Users\\Aspl-Kishore\\GolandProjects\\go-with-test\\web\\ui\\static"))
+	defer db.Close()
 
-	mux.Handle("/static/", http.StripPrefix("/static", fileserver))
-	mux.HandleFunc("/", app.home)
-	mux.HandleFunc("/snippet/view", app.snippetView)
-	mux.HandleFunc("/snippet/create", app.snippetCreate)
+	app := &application{errorlog: errorlog, infolog: infolog, snippets: &models.SnippetModel{DB: db}}
 
 	srv := &http.Server{
 		Addr:     *addr,
 		ErrorLog: errorlog,
-		Handler:  mux,
+		Handler:  app.routes(),
 	}
 
 	infolog.Printf("Starting server on %s", *addr)
-	err := srv.ListenAndServe()
+	err = srv.ListenAndServe()
 
 	errorlog.Fatal(err)
 
