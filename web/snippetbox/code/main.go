@@ -78,9 +78,9 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	files := []string{
-		"./ui/html/base.tmpl",
-		"./ui/html/partials/nav.tmpl",
-		"./ui/html/pages/view.tmpl",
+		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\pages\\base.tmpl",
+		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\partials\\nav.tmpl",
+		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\pages\\view.tmpl",
 	}
 
 	ts, err := template.ParseFiles(files...)
@@ -88,7 +88,11 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		app.serverError(w, err)
 	}
-	err = ts.ExecuteTemplate(w, "base", snippet)
+
+	data := &templateData{
+		Snippet: snippet,
+	}
+	err = ts.ExecuteTemplate(w, "base", data)
 	if err != nil {
 		app.serverError(w, err)
 	}
