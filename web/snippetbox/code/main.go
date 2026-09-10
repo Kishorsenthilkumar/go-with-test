@@ -16,9 +16,10 @@ import (
 )
 
 type application struct {
-	errorlog *log.Logger
-	infolog  *log.Logger
-	snippets *models.SnippetModel
+	errorlog      *log.Logger
+	infolog       *log.Logger
+	snippets      *models.SnippetModel
+	templateCache map[string]*template.Template
 }
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
@@ -35,28 +36,26 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, snips := range snippets {
-		fmt.Fprintf(w, "%+v", snips)
+	files := []string{
+		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\base.tmpl",
+		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\partials\\nav.tmpl",
+		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\pages\\home.tmpl",
 	}
+	ts, err := template.ParseFiles(files...)
 
-	//files := []string{
-	//	"C:\\Users\\Aspl-Kishore\\GolandProjects\\go-with-test\\web\\ui\\html\\pages\\base.tmpl",
-	//	"C:\\Users\\Aspl-Kishore\\GolandProjects\\go-with-test\\web\\ui\\html\\partials\\nav.tmpl",
-	//	"C:\\Users\\Aspl-Kishore\\GolandProjects\\go-with-test\\web\\ui\\html\\pages\\home.tmpl",
-	//}
-	//ts, err := template.ParseFiles(files...)
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+	data := &templateData{
+		Snippets: snippets,
+	}
+	err = ts.ExecuteTemplate(w, "base", data)
 
-	//if err != nil {
-	//	app.serverError(w, err)
-	//	return
-	//}
-
-	//err = ts.ExecuteTemplate(w, "base", nil)
-
-	//if err != nil {
-	//	app.serverError(w, err)
-	//	return
-	//}
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
 }
 
 func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +77,7 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	files := []string{
-		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\pages\\base.tmpl",
+		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\base.tmpl",
 		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\partials\\nav.tmpl",
 		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\pages\\view.tmpl",
 	}
@@ -153,12 +152,22 @@ func main() {
 
 	defer db.Close()
 
-	app := &application{errorlog: errorlog, infolog: infolog, snippets: &models.SnippetModel{DB: db}}
+	templateCache, err := newTemplateCache()
+	if err != nil {
+		errorlog.Fatal(err)
+	}
+
+	app := &application{
+		errorlog: errorlog,
+		infolog: infolog,
+		snippets: &models.SnippetModel{DB: db},
+		templateCache: templateCache,
+	}
 
 	srv := &http.Server{
-		Addr:     *addr,
-		ErrorLog: errorlog,
-		Handler:  app.routes(),
+		Addr:          *addr,
+		ErrorLog:      errorlog,
+		Handler:       app.routes(),
 	}
 
 	infolog.Printf("Starting server on %s", *addr)
