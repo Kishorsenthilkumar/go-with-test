@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
 	"flag"
@@ -36,26 +37,11 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files := []string{
-		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\base.tmpl",
-		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\partials\\nav.tmpl",
-		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\pages\\home.tmpl",
-	}
-	ts, err := template.ParseFiles(files...)
+	data := app.newTemplateData(r)
+	data.Snippets = snippets
 
-	if err != nil {
-		app.serverError(w, err)
-		return
-	}
-	data := &templateData{
-		Snippets: snippets,
-	}
-	err = ts.ExecuteTemplate(w, "base", data)
+	app.render(w, http.StatusOK, "home.tmpl", data)
 
-	if err != nil {
-		app.serverError(w, err)
-		return
-	}
 }
 
 func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
@@ -76,25 +62,9 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	files := []string{
-		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\base.tmpl",
-		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\partials\\nav.tmpl",
-		"C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\pages\\view.tmpl",
-	}
-
-	ts, err := template.ParseFiles(files...)
-
-	if err != nil {
-		app.serverError(w, err)
-	}
-
-	data := &templateData{
-		Snippet: snippet,
-	}
-	err = ts.ExecuteTemplate(w, "base", data)
-	if err != nil {
-		app.serverError(w, err)
-	}
+	data := app.newTemplateData(r)
+	data.Snippet = snippet
+	app.render(w, http.StatusOK, "view.tmpl", data)
 
 }
 
@@ -133,6 +103,26 @@ func openDB(dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
+func (app *application) render(w http.ResponseWriter, status int, page string, data *templateData) {
+
+	ts, ok := app.templateCache[page]
+	if !ok {
+		err := fmt.Errorf("the template %s does not exist", page)
+		app.serverError(w, err)
+		return
+	}
+
+	buff := new(bytes.Buffer)
+
+	err := ts.ExecuteTemplate(buff, "base", data)
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+	w.WriteHeader(status)
+	buff.WriteTo(w)
+}
+
 func main() {
 
 	addr := flag.String("addr", ":4000", "HTTP network address")
@@ -158,16 +148,16 @@ func main() {
 	}
 
 	app := &application{
-		errorlog: errorlog,
-		infolog: infolog,
-		snippets: &models.SnippetModel{DB: db},
+		errorlog:      errorlog,
+		infolog:       infolog,
+		snippets:      &models.SnippetModel{DB: db},
 		templateCache: templateCache,
 	}
 
 	srv := &http.Server{
-		Addr:          *addr,
-		ErrorLog:      errorlog,
-		Handler:       app.routes(),
+		Addr:     *addr,
+		ErrorLog: errorlog,
+		Handler:  app.routes(),
 	}
 
 	infolog.Printf("Starting server on %s", *addr)

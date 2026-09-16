@@ -3,12 +3,15 @@ package main
 import (
 	"go-with-test/web/snippetbox/internal/models"
 	"html/template"
+	"net/http"
 	"path/filepath"
+	"time"
 )
 
 type templateData struct {
-	Snippet  *models.Snippet
-	Snippets []*models.Snippet
+	CurrentYear int
+	Snippet     *models.Snippet
+	Snippets    []*models.Snippet
 }
 
 func newTemplateCache() (map[string]*template.Template, error) {
@@ -25,18 +28,24 @@ func newTemplateCache() (map[string]*template.Template, error) {
 
 		file_name := filepath.Base(page)
 
-		files := []string{
-			"./ui/html/base.tmpl",
-			"./ui/html/partials/nav.tmpl",
-			page,
-		}
-
-		ts, err := template.ParseFiles(files...)
-
+		ts, err := template.ParseFiles("C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\base.tmpl")
 		if err != nil {
 			return nil, err
 		}
+		ts, err = ts.ParseGlob("C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\partials\\*.tmpl")
+		if err != nil {
+			return nil, err
+		}
+		ts, err = ts.ParseFiles(page)
+		if err != nil {
+			return nil, err
+		}
+
 		cache[file_name] = ts
 	}
 	return cache, nil
+}
+
+func (app *application) newTemplateData(r *http.Request) *templateData {
+	return &templateData{CurrentYear: time.Now().Year()}
 }
