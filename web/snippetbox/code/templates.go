@@ -18,7 +18,7 @@ func newTemplateCache() (map[string]*template.Template, error) {
 
 	cache := map[string]*template.Template{}
 
-	pages, err := filepath.Glob("C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\pages\\*.tmpl")
+	pages, err := filepath.Glob("./web/ui/html/pages/*.tmpl")
 
 	if err != nil {
 		return nil, err
@@ -28,11 +28,11 @@ func newTemplateCache() (map[string]*template.Template, error) {
 
 		file_name := filepath.Base(page)
 
-		ts, err := template.ParseFiles("C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\base.tmpl")
+		ts, err := template.ParseFiles("web/ui/html/base.tmpl")
 		if err != nil {
 			return nil, err
 		}
-		ts, err = ts.ParseGlob("C:\\Users\\Kisho\\GolandProjects\\go-with-test\\web\\ui\\html\\partials\\*.tmpl")
+		ts, err = ts.ParseGlob("web/ui/html/partials/*.tmpl")
 		if err != nil {
 			return nil, err
 		}
