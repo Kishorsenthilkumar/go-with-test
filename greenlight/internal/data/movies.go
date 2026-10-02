@@ -34,7 +34,22 @@ func (m *MovieModel) Insert(movie *Movie) error {
 }
 
 func (m *MovieModel) Update(movie *Movie) error {
-	return nil
+
+	query := `
+        UPDATE movies 
+        SET title = $1, year = $2, runtime = $3, genres = $4, version = version + 1
+        WHERE id = $5
+        RETURNING version`
+
+	args := []interface{}{
+		&movie.Title,
+		&movie.Year,
+		&movie.Runtime,
+		pq.Array(&movie.Genres),
+		&movie.Version,
+	}
+
+	return m.db.QueryRow(query, args...).Scan(&movie.Version)
 }
 
 func (m *MovieModel) Get(id int64) (*Movie, error) {
@@ -50,7 +65,7 @@ func (m *MovieModel) Get(id int64) (*Movie, error) {
 
 	var movie Movie
 
-	err := m.db.QueryRow(query, id).Scan(&movie.ID, &movie.Title, &movie.Year, &movie.Runtime, pq.Array(&movie.Genres), &movie.Version)
+	err := m.db.QueryRow(query, id).Scan(&movie.ID, &movie.CreatedAt, &movie.Title, &movie.Year, &movie.Runtime, pq.Array(&movie.Genres), &movie.Version)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
