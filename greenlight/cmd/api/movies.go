@@ -56,8 +56,10 @@ func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request)
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
 			app.notFoundResponse(w, r)
+			return
 		default:
 			app.serverErrorResponse(w, r, err)
+			return
 		}
 	}
 
@@ -82,6 +84,7 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 			app.notFoundResponse(w, r)
 		default:
 			app.serverErrorResponse(w, r, err)
+
 		}
 		return
 	}
@@ -114,11 +117,17 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 
 	err = app.models.Movies.Update(movie)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+
+		}
 		return
 	}
 
-	err = app.writeJSON(w, http.StatusAccepted, envelope{"movie": movie}, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"movie": movie}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
