@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -80,4 +82,32 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst int
 	}
 
 	return nil
+}
+
+func (app *application) readString(qs url.Values, key string, defaultValue string) string {
+	v := qs.Get(key)
+	if v == "" {
+		return defaultValue
+	}
+	return v
+}
+
+func (app *application) readCSV(qs url.Values, key string, defaultValue []string) []string {
+	v := qs.Get(key)
+	if v == "" {
+		return defaultValue
+	}
+	return strings.Split(v, "")
+}
+
+func (app *application) readInt(qs url.Values, key string, defaultValue int) int {
+	v := qs.Get(key)
+	if v == "" {
+		return defaultValue
+	}
+	i, err := strconv.Atoi(v)
+	if err != nil {
+		return defaultValue
+	}
+	return i
 }
