@@ -4,9 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"flag"
-	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"time"
 
@@ -25,6 +22,11 @@ type conf struct {
 		maxOpenConn int
 		maxIdleConn int
 		maxIdleTime string
+	}
+	limiter struct {
+		rps     float64
+		burst   int
+		enabled bool
 	}
 }
 
@@ -46,6 +48,10 @@ func main() {
 	flag.IntVar(&config.db.maxIdleConn, "db-max-idle-conns", 25, "postgres max idle conn")
 	flag.StringVar(&config.db.maxIdleTime, "db-max-idle-time", "15m", "postgres max idle time")
 
+	flag.Float64Var(&config.limiter.rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
+	flag.IntVar(&config.limiter.burst, "limiter-burst", 4, "Rate limiter maximum burst")
+	flag.BoolVar(&config.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
+
 	flag.Parse()
 
 	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
@@ -64,18 +70,10 @@ func main() {
 		models: data.NewModels(db),
 	}
 
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", config.port),
-		Handler:      app.router(),
-		ErrorLog:     log.New(logger, "", 0),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+	err = app.serve()
+	if err != nil {
+		logger.PrintFatal(err, nil)
 	}
-
-	logger.PrintInfo("starting %s server on port %d ", map[string]string{"env": config.env, "addr": srv.Addr})
-	err = srv.ListenAndServe()
-	logger.PrintFatal(err, nil)
 }
 
 func openDB(config conf) (*sql.DB, error) {
