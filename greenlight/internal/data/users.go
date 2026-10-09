@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 	"greenlight.alexedwards.net/internal/data/validator"
 )
