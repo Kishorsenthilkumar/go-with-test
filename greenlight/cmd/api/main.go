@@ -4,15 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"flag"
-	"fmt"
-	"log"
-	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	_ "github.com/lib/pq"
 	"greenlight.alexedwards.net/internal/data"
 	"greenlight.alexedwards.net/internal/jsonlog"
+	"greenlight.alexedwards.net/internal/mailer"
 )
 
 const version = "1.0.0"
@@ -26,12 +25,26 @@ type conf struct {
 		maxIdleConn int
 		maxIdleTime string
 	}
+	limiter struct {
+		rps     float64
+		burst   int
+		enabled bool
+	}
+	smtp struct {
+		host     string
+		port     int
+		username string
+		password string
+		sender   string
+	}
 }
 
 type application struct {
 	config conf
 	logger jsonlog.Logger
 	models data.Models
+	mailer mailer.Mailer
+	wg     sync.WaitGroup
 }
 
 func main() {
@@ -45,6 +58,16 @@ func main() {
 	flag.IntVar(&config.db.maxOpenConn, "db-max-open-conns", 25, "postgres max open conn")
 	flag.IntVar(&config.db.maxIdleConn, "db-max-idle-conns", 25, "postgres max idle conn")
 	flag.StringVar(&config.db.maxIdleTime, "db-max-idle-time", "15m", "postgres max idle time")
+
+	flag.Float64Var(&config.limiter.rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
+	flag.IntVar(&config.limiter.burst, "limiter-burst", 4, "Rate limiter maximum burst")
+	flag.BoolVar(&config.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
+
+	flag.StringVar(&config.smtp.host, "smtp-host", "live.smtp.mailtrap.io", "SMTP host")
+	flag.IntVar(&config.smtp.port, "smtp-port", 587, "SMTP port")
+	flag.StringVar(&config.smtp.username, "smtp-username", "smtp@mailtrap.io", "SMTP username")
+	flag.StringVar(&config.smtp.password, "smtp-password", "e4d5e0a0ea74582b924089e8ee0aaf0d", "SMTP password")
+	flag.StringVar(&config.smtp.sender, "smtp-sender", "hello@demomailtrap.co", "SMTP sender")
 
 	flag.Parse()
 
@@ -62,20 +85,13 @@ func main() {
 		config: config,
 		logger: *logger,
 		models: data.NewModels(db),
+		mailer: mailer.New(config.smtp.host, config.smtp.port, config.smtp.username, config.smtp.password, config.smtp.sender),
 	}
 
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", config.port),
-		Handler:      app.router(),
-		ErrorLog:     log.New(logger, "", 0),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+	err = app.serve()
+	if err != nil {
+		logger.PrintFatal(err, nil)
 	}
-
-	logger.PrintInfo("starting %s server on port %d ", map[string]string{"env": config.env, "addr": srv.Addr})
-	err = srv.ListenAndServe()
-	logger.PrintFatal(err, nil)
 }
 
 func openDB(config conf) (*sql.DB, error) {
